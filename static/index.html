@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAN Device Manager</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --accent: #38bdf8;
+    --green: #4ade80;
+    --red: #f87171;
+    --orange: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1.5rem;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  h1 { font-size: 1.5rem; font-weight: 600; }
+  .header-right { display: flex; gap: 0.75rem; align-items: center; }
+  input[type="text"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    outline: none;
+    width: 220px;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #0f172a;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    background: var(--surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  button.btn-sm:hover { color: var(--text); border-color: var(--text-dim); }
+  button.btn-danger:hover { color: var(--red); border-color: var(--red); }
+  .status-bar {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  th {
+    background: #0f172a;
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(56, 189, 248, 0.04); }
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.35rem;
+    vertical-align: middle;
+  }
+  .status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.offline { background: var(--border); }
+  .ip-cell {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    cursor: pointer;
+    color: var(--accent);
+  }
+  .ip-cell:hover { text-decoration: underline; }
+  .mac-cell {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+  .editable {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    width: 100%;
+    font-family: inherit;
+  }
+  .editable:hover { border-color: var(--border); }
+  .editable:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg);
+  }
+  .actions { display: flex; gap: 0.35rem; }
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-dim);
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #0f172a44;
+    border-top-color: #0f172a;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .last-seen { color: var(--text-dim); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LAN Devices</h1>
+  <div class="header-right">
+    <input type="text" id="search" placeholder="Filter devices...">
+    <button id="scanBtn" onclick="doScan()">Scan Network</button>
+  </div>
+</header>
+
+<div class="status-bar" id="statusBar">Loading devices...</div>
+
+<table id="deviceTable">
+  <thead>
+    <tr>
+      <th style="width:40px">Status</th>
+      <th>IP Address</th>
+      <th>MAC Address</th>
+      <th>Hostname</th>
+      <th>Description</th>
+      <th>Last Seen</th>
+      <th style="width:80px"></th>
+    </tr>
+  </thead>
+  <tbody id="deviceBody"></tbody>
+</table>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let allDevices = [];
+
+async function loadDevices() {
+  const resp = await fetch('/api/devices');
+  allDevices = await resp.json();
+  renderDevices();
+}
+
+function renderDevices() {
+  const filter = document.getElementById('search').value.toLowerCase();
+  const tbody = document.getElementById('deviceBody');
+  const filtered = allDevices.filter(d =>
+    (d.ip || '').toLowerCase().includes(filter) ||
+    (d.mac || '').toLowerCase().includes(filter) ||
+    (d.hostname || '').toLowerCase().includes(filter) ||
+    (d.description || '').toLowerCase().includes(filter)
+  );
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+      ${allDevices.length === 0 ? 'No devices yet. Click <b>Scan Network</b> to discover devices.' : 'No devices match your filter.'}
+    </td></tr>`;
+    updateStatus();
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(d => `
+    <tr data-mac="${esc(d.mac)}">
+      <td><span class="status-dot ${d.is_online ? 'online' : 'offline'}"></span></td>
+      <td class="ip-cell" onclick="copyIP('${esc(d.ip)}')" title="Click to copy">${esc(d.ip)}</td>
+      <td class="mac-cell">${esc(d.mac)}</td>
+      <td>${esc(d.hostname || '-')}</td>
+      <td><input class="editable" value="${esc(d.description || '')}"
+           placeholder="Add description..."
+           onblur="saveDesc('${esc(d.mac)}', this.value)"
+           onkeydown="if(event.key==='Enter')this.blur()"></td>
+      <td class="last-seen">${formatTime(d.last_seen)}</td>
+      <td class="actions">
+        <button class="btn-sm btn-danger" onclick="removeDevice('${esc(d.mac)}')" title="Delete">&#x2715;</button>
+      </td>
+    </tr>
+  `).join('');
+  updateStatus();
+}
+
+function updateStatus() {
+  const online = allDevices.filter(d => d.is_online).length;
+  document.getElementById('statusBar').textContent =
+    `${allDevices.length} device${allDevices.length !== 1 ? 's' : ''} tracked, ${online} online`;
+}
+
+function doScan() {
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Scanning...';
+
+  // Mark all current devices offline in the UI while scanning
+  allDevices.forEach(d => d.is_online = 0);
+  renderDevices();
+
+  let found = 0;
+  document.getElementById('statusBar').textContent = 'Scanning network... 0 devices found';
+
+  const evtSource = new EventSource('/api/scan');
+
+  evtSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.done) {
+      evtSource.close();
+      btn.disabled = false;
+      btn.textContent = 'Scan Network';
+      toast(`Found ${data.scanned} device${data.scanned !== 1 ? 's' : ''} on network`);
+      updateStatus();
+      return;
+    }
+
+    // Merge into allDevices — update existing or add new
+    const existing = allDevices.find(d => d.mac === data.mac);
+    if (existing) {
+      existing.ip = data.ip;
+      existing.hostname = data.hostname;
+      existing.is_online = 1;
+      existing.last_seen = data.last_seen;
+    } else {
+      allDevices.push({ ...data, description: '' });
+    }
+
+    found++;
+    document.getElementById('statusBar').textContent =
+      `Scanning network... ${found} device${found !== 1 ? 's' : ''} found`;
+    renderDevices();
+  };
+
+  evtSource.onerror = () => {
+    evtSource.close();
+    btn.disabled = false;
+    btn.textContent = 'Scan Network';
+    if (found === 0) {
+      toast('Scan finished — no new devices found');
+    }
+    updateStatus();
+  };
+}
+
+async function saveDesc(mac, description) {
+  await fetch(`/api/devices/${encodeURIComponent(mac)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description }),
+  });
+  const d = allDevices.find(d => d.mac === mac);
+  if (d) d.description = description;
+}
+
+async function removeDevice(mac) {
+  if (!confirm(`Remove device ${mac}?`)) return;
+  await fetch(`/api/devices/${encodeURIComponent(mac)}`, { method: 'DELETE' });
+  allDevices = allDevices.filter(d => d.mac !== mac);
+  renderDevices();
+  toast('Device removed');
+}
+
+function copyIP(ip) {
+  navigator.clipboard.writeText(ip);
+  toast(`Copied ${ip}`);
+}
+
+function formatTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return d.toLocaleDateString();
+}
+
+function esc(s) {
+  if (!s) return '';
+  const el = document.createElement('span');
+  el.textContent = s;
+  return el.innerHTML;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+document.getElementById('search').addEventListener('input', renderDevices);
+loadDevices();
+</script>
+</body>
+</html>
