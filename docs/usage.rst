@@ -36,6 +36,14 @@ Filtering
 Use the **Filter devices** search box to filter the table by any field: IP
 address, MAC address, hostname, or description. The filter updates as you type.
 
+Clickable Hostnames
+^^^^^^^^^^^^^^^^^^^
+
+When a device is online and has a resolved hostname, the hostname is displayed as
+a clickable link. Clicking it opens ``http://<device-ip>`` in a new browser tab,
+which is handy for quickly accessing routers, printers, and other devices that
+expose a web interface.
+
 Copying IP Addresses
 ^^^^^^^^^^^^^^^^^^^^
 
