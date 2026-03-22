@@ -3,3 +3,5 @@ __pycache__/
 *.db
 .claude/
 docs/_build/
+.DS_Store
+html
