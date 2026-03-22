@@ -111,6 +111,12 @@
     color: var(--accent);
   }
   .ip-cell:hover { text-decoration: underline; }
+  .hostname-link {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .hostname-link:hover { text-decoration: underline; }
   .mac-cell {
     font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
     color: var(--text-dim);
@@ -229,7 +235,7 @@ function renderDevices() {
       <td><span class="status-dot ${d.is_online ? 'online' : 'offline'}"></span></td>
       <td class="ip-cell" onclick="copyIP('${esc(d.ip)}')" title="Click to copy">${esc(d.ip)}</td>
       <td class="mac-cell">${esc(d.mac)}</td>
-      <td>${esc(d.hostname || '-')}</td>
+      <td>${d.is_online && d.hostname ? `<a class="hostname-link" href="http://${esc(d.ip)}" target="_blank" rel="noopener">${esc(d.hostname)}</a>` : esc(d.hostname || '-')}</td>
       <td><input class="editable" value="${esc(d.description || '')}"
            placeholder="Add description..."
            onblur="saveDesc('${esc(d.mac)}', this.value)"
