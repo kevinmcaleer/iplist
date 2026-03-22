@@ -265,6 +265,7 @@ function doScan() {
   renderDevices();
 
   let found = 0;
+  let scanSubnets = [];
   document.getElementById('statusBar').textContent = 'Scanning network... 0 devices found';
 
   const evtSource = new EventSource('/api/scan');
@@ -272,11 +273,20 @@ function doScan() {
   evtSource.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
+    // First event: list of subnets being scanned
+    if (data.subnets) {
+      scanSubnets = data.subnets;
+      document.getElementById('statusBar').textContent =
+        `Scanning ${scanSubnets.join(', ')}... 0 devices found`;
+      return;
+    }
+
     if (data.done) {
       evtSource.close();
       btn.disabled = false;
       btn.textContent = 'Scan Network';
-      toast(`Found ${data.scanned} device${data.scanned !== 1 ? 's' : ''} on network`);
+      const subnetInfo = scanSubnets.length > 1 ? ` across ${scanSubnets.length} subnets` : '';
+      toast(`Found ${data.scanned} device${data.scanned !== 1 ? 's' : ''}${subnetInfo}`);
       updateStatus();
       return;
     }
@@ -293,8 +303,9 @@ function doScan() {
     }
 
     found++;
+    const subnetLabel = scanSubnets.length > 0 ? scanSubnets.join(', ') : 'network';
     document.getElementById('statusBar').textContent =
-      `Scanning network... ${found} device${found !== 1 ? 's' : ''} found`;
+      `Scanning ${subnetLabel}... ${found} device${found !== 1 ? 's' : ''} found`;
     renderDevices();
   };
 

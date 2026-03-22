@@ -10,12 +10,26 @@ complete.
 
 The scan:
 
-1. Runs ``nmap -sn`` (ping sweep) on your local /24 subnet
+1. Runs ``nmap -sn`` (ping sweep) on your local /24 subnet (plus any extra subnets)
 2. Reads the system ARP table to resolve MAC addresses
 3. Streams each discovered device to the browser via SSE
 4. Saves results to the SQLite database
 
 Previously known devices that are not found during a scan are marked as offline.
+
+Multiple Subnets
+^^^^^^^^^^^^^^^^
+
+By default the scanner auto-detects your local /24 subnet. If your network spans
+additional subnets, add them to the ``.env`` file in the project root::
+
+    EXTRA_SUBNETS=192.168.2.0/24
+
+Multiple extra subnets can be comma-separated::
+
+    EXTRA_SUBNETS=192.168.2.0/24,10.0.0.0/24
+
+The status bar shows which subnets are being scanned during a scan.
 
 Managing Devices
 ----------------

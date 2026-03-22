@@ -8,7 +8,7 @@ from starlette.responses import StreamingResponse
 from pydantic import BaseModel
 
 from database import init_db, get_all_devices, update_device, delete_device
-from scanner import scan_network_stream
+from scanner import scan_network_stream, get_subnets
 
 
 @asynccontextmanager
@@ -34,9 +34,13 @@ async def list_devices(online_only: bool = False):
 @app.get("/api/scan")
 async def trigger_scan():
     """SSE endpoint — streams each discovered device as an event."""
+    subnets = get_subnets()
+
     def event_stream():
+        # Tell the frontend which subnets we're scanning
+        yield f"data: {json.dumps({'subnets': subnets})}\n\n"
         count = 0
-        for device in scan_network_stream():
+        for device in scan_network_stream(subnets):
             count += 1
             yield f"data: {json.dumps(device)}\n\n"
         # Final event signals scan is complete

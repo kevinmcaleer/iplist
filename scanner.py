@@ -4,8 +4,13 @@ import subprocess
 import re
 from collections.abc import Generator
 from datetime import datetime, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from database import upsert_device, mark_all_offline
+
+load_dotenv(Path(__file__).parent / ".env")
 
 
 def get_local_subnet() -> str:
@@ -72,18 +77,22 @@ def normalize_mac(mac: str) -> str | None:
         return None
 
 
-def scan_network_stream(subnet: str | None = None) -> Generator[dict, None, None]:
-    """Stream devices as nmap discovers them by reading stdout line-by-line."""
-    if subnet is None:
-        subnet = get_local_subnet()
+def get_subnets() -> list[str]:
+    """Return list of subnets to scan: auto-detected + any extra from EXTRA_SUBNETS env var."""
+    subnets = [get_local_subnet()]
+    extra = os.environ.get("EXTRA_SUBNETS", "")
+    if extra:
+        for s in extra.split(","):
+            s = s.strip()
+            if s and s not in subnets:
+                subnets.append(s)
+    return subnets
 
-    # Pre-fetch ARP table so we can enrich results immediately
-    arp_table = get_arp_table()
-    now = datetime.now(timezone.utc).isoformat()
 
-    mark_all_offline()
-
-    # Use a pty so nmap thinks it's writing to a terminal and doesn't buffer.
+def _scan_single_subnet(
+    subnet: str, arp_table: dict[str, str], now: str
+) -> Generator[dict, None, None]:
+    """Scan one subnet with nmap and yield devices as they're discovered."""
     primary_fd, replica_fd = pty.openpty()
 
     proc = subprocess.Popen(
@@ -94,7 +103,6 @@ def scan_network_stream(subnet: str | None = None) -> Generator[dict, None, None
     )
     os.close(replica_fd)  # close child side in parent
 
-    # Read from the pty primary side
     stdout_file = os.fdopen(primary_fd, "r", encoding="utf-8", errors="replace")
 
     current_ip = None
@@ -115,7 +123,6 @@ def scan_network_stream(subnet: str | None = None) -> Generator[dict, None, None
             r"Nmap scan report for (?:(.+?) \()?(\d+\.\d+\.\d+\.\d+)\)?", line
         )
         if report:
-            # Emit previous device if we have one
             device = _finalize_device(current_ip, current_mac, current_hostname, arp_table, now)
             if device:
                 yield device
@@ -137,6 +144,21 @@ def scan_network_stream(subnet: str | None = None) -> Generator[dict, None, None
 
     stdout_file.close()
     proc.wait()
+
+
+def scan_network_stream(subnets: list[str] | None = None) -> Generator[dict, None, None]:
+    """Stream devices from one or more subnets as nmap discovers them."""
+    if subnets is None:
+        subnets = get_subnets()
+
+    # Pre-fetch ARP table so we can enrich results immediately
+    arp_table = get_arp_table()
+    now = datetime.now(timezone.utc).isoformat()
+
+    mark_all_offline()
+
+    for subnet in subnets:
+        yield from _scan_single_subnet(subnet, arp_table, now)
 
 
 def _finalize_device(
