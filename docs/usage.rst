@@ -69,3 +69,42 @@ Removing Devices
 
 Click the **x** button on any row to remove a device from the database. This is
 useful for cleaning up devices that are no longer on your network.
+
+Backup & Restore
+----------------
+
+The ``backup.py`` script lets you export the entire device database as a SQL
+script and restore it later. This is useful for migrating to a new machine or
+keeping periodic snapshots.
+
+Creating a Backup
+^^^^^^^^^^^^^^^^^
+
+Print the backup SQL to the terminal::
+
+    python backup.py
+
+Save the backup to a file::
+
+    python backup.py -o backup.sql
+
+You can also redirect stdout::
+
+    python backup.py > backup.sql
+
+Restoring from a Backup
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Restore a previously saved backup::
+
+    python backup.py --restore backup.sql
+
+This replaces the contents of the database with the data in the backup file.
+
+Using a Custom Database Path
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Both backup and restore accept ``--db`` to specify an alternate database file::
+
+    python backup.py --db /path/to/devices.db -o backup.sql
+    python backup.py --db /path/to/devices.db --restore backup.sql
